@@ -30,11 +30,17 @@ def mqtt(opendtu_power, opendtu_yieldday):
 # metrics from SMA
 def sma(sma_ip, sma_port):
     try:
-        result = Sma.read(sma_ip, sma_port)
-        fvalue = float(result)
-        if not math.isnan(fvalue):
-            TimescaleDb.writeW('sma', fvalue)
-        return fvalue
+        solarpower, energymeterpower_drawn, energymeterpower_feedin = Sma.read(sma_ip, sma_port)
+        solarpower = float(solarpower)
+        if not math.isnan(solarpower):
+            TimescaleDb.writeW('sma', solarpower)
+        energymeterpower_drawn = float(energymeterpower_drawn)
+        if not math.isnan(energymeterpower_drawn):
+            TimescaleDb.writeW('energymeter_drawn', energymeterpower_drawn)
+        energymeterpower_feedin = float(energymeterpower_feedin)
+        if not math.isnan(energymeterpower_feedin):
+            TimescaleDb.writeW('energymeter_feedin', energymeterpower_feedin)
+        return (solarpower, energymeterpower_drawn, energymeterpower_feedin)
 
     except Exception as ex:
         print ("ERROR sma: ", ex)
@@ -63,8 +69,14 @@ if __name__ == "__main__":
 
         # metrics
         mqtt_feed_in = round(mqtt(conf["opendtu_power"], conf["opendtu_yieldday"]))
-        sma_feed_in = round(sma(conf["sma_ip"], conf["sma_port"]))
+        sma_feed_in, energymeter_drawn, energymeter_feedin = sma(conf["sma_ip"], conf["sma_port"])
+
+        sma_feed_in = round(sma_feed_in)
+        energymeter_drawn = round(energymeter_drawn)
+        energymeter_feedin = round(energymeter_feedin)
+
         print (f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} OpenDtu: {mqtt_feed_in}W, SMA: {sma_feed_in}W, feed_in_limit: {conf['feed_in_limit']}W")
+        print (f"Energymeter Drawn: {energymeter_drawn}W, Energymeter FeedIn: {energymeter_feedin}W")
 
         # add invert power
         feed_in = mqtt_feed_in + sma_feed_in
