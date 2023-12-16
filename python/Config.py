@@ -32,7 +32,8 @@ def read():
 
         values["idm_ip"] = config['IdmSection']['idm_ip']
         values["idm_port"] = int(config['IdmSection']['idm_port']) 
-        values["feed_in_limit"] = int(config['IdmSection']['feed_in_limit']) 
+        values["feed_in_limit_on"] = int(config['IdmSection']['feed_in_limit_on']) 
+        values["feed_in_limit_off"] = int(config['IdmSection']['feed_in_limit_off']) 
         if os.getenv('IDM_IP','None') != 'None':
             values["idm_ip"] = os.getenv('IDM_IP')
             #print ("using env: IDM_IP")

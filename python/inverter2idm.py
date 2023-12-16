@@ -47,14 +47,22 @@ def sma(sma_ip, sma_port):
 
 
 
-# metrics from IDM
-def idm(idm_ip, idm_port, feed_in):
+# write metrics to IDM
+def idmwrite(idm_ip, idm_port, feed_in):
     try:
-        return IdmPump.writeandread(idm_ip, idm_port, feed_in)
+        return IdmPump.write(idm_ip, idm_port, feed_in)
         
     except Exception as ex:
         print ("ERROR idm: ", ex)
 
+
+# read metrics from IDM
+def idmread(idm_ip, idm_port):
+    try:
+        return IdmPump.read(idm_ip, idm_port)
+        
+    except Exception as ex:
+        print ("ERROR idm: ", ex)
 
 
 
@@ -67,30 +75,48 @@ if __name__ == "__main__":
         TimescaleDb.connect(conf["timescaledb_ip"], conf["timescaledb_username"], conf["timescaledb_password"])
         Mqtt.connect(conf["mqtt_broker"], conf["mqtt_port"], conf["mqtt_user"], conf["mqtt_password"])
 
-        # metrics
-        mqtt_feed_in = round(mqtt(conf["opendtu_power"], conf["opendtu_yieldday"]))
+        # get solar power and energymeter metrics
+        mqtt_feed_in = mqtt(conf["opendtu_power"], conf["opendtu_yieldday"])
         sma_feed_in, energymeter_drawn, energymeter_feedin = sma(conf["sma_ip"], conf["sma_port"])
 
+        # round the values
+        mqtt_feed_in = round(mqtt_feed_in)
         sma_feed_in = round(sma_feed_in)
         energymeter_drawn = round(energymeter_drawn)
         energymeter_feedin = round(energymeter_feedin)
 
-        print (f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} OpenDtu: {mqtt_feed_in}W, SMA: {sma_feed_in}W, feed_in_limit: {conf['feed_in_limit']}W")
-        print (f"Energymeter Drawn: {energymeter_drawn}W, Energymeter FeedIn: {energymeter_feedin}W")
+        print (f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} OpenDtu: {mqtt_feed_in}W, SMA: {sma_feed_in}W, IDM feed_in_limit_on: {conf['feed_in_limit_on']}W, IDM feed_in_limit_off: {conf['feed_in_limit_off']}W")
+        print (f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} Energymeter Drawn: {energymeter_drawn}W, Energymeter Feed: {energymeter_feedin}W")
 
         # add invert power
         feed_in = mqtt_feed_in + sma_feed_in
 
 
-        # feed in must be above our limit
+        # idm feed in must be above our feed_in_limit_on to switch on
+        # if idm feed in between feed_in_limit_on and feed_in_limit_off, test if it was on (state)
         # idm feed_in in kW, negativ numbers for power from grid, 0 to reset
-        if feed_in > conf['feed_in_limit']:
-            idm(conf["idm_ip"], conf["idm_port"], feed_in/1000)
-            print (datetime.now().strftime("%d/%m/%Y %H:%M:%S") + " IDM feed-in reached: ", feed_in, "W")               
+
+        if feed_in > conf['feed_in_limit_on']:
+            idmwrite(conf["idm_ip"], conf["idm_port"], feed_in/1000)
+            print (datetime.now().strftime("%d/%m/%Y %H:%M:%S") + " IDM PV-feed-in write: ", feed_in, "W", sep="")               
             TimescaleDb.writeW('to_idm', feed_in)
+
+        elif (feed_in > conf['feed_in_limit_off']) and (feed_in < conf['feed_in_limit_on']):
+            # read the actual idm pv-state
+            idm = round(idmread(conf["idm_ip"], conf["idm_port"])*1000)
+            print(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} IDM read: {idm}W")
+            if idm > conf['feed_in_limit_off']:
+                idmwrite(conf["idm_ip"], conf["idm_port"], feed_in/1000)
+                print (datetime.now().strftime("%d/%m/%Y %H:%M:%S") + " IDM PV-feed-in write: ", feed_in, "W", sep="")               
+                TimescaleDb.writeW('to_idm', feed_in)
+            else:
+                idmwrite(conf["idm_ip"], conf["idm_port"], 0)
+                print (datetime.now().strftime("%d/%m/%Y %H:%M:%S") + " IDM PV-feed-in write: ", 0, "W", sep="")  
+                TimescaleDb.writeW('to_idm', 0)
+
         else:
-            idm(conf["idm_ip"], conf["idm_port"], 0)
-            print (datetime.now().strftime("%d/%m/%Y %H:%M:%S") + " IDM send ZERO: ", 0)  
+            idmwrite(conf["idm_ip"], conf["idm_port"], 0)
+            print (datetime.now().strftime("%d/%m/%Y %H:%M:%S") + " IDM PV-feed-in write: ", 0, "W", sep="")  
             TimescaleDb.writeW('to_idm', 0)
 
 

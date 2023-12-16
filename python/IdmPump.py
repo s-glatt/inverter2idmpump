@@ -25,7 +25,7 @@ def writefloat(client,myadr_dec,feed_in,unitid):
 
 
 
-def writeandread(idm_ip, idm_port, feed_in):  
+def write(idm_ip, idm_port, feed_in):  
     try:
         
         #connection iDM
@@ -34,6 +34,22 @@ def writeandread(idm_ip, idm_port, feed_in):
 
         #solar power stored in 74
         writefloat(client,74,feed_in,1)
+        return readfloat(client,74,1)
+  
+    except Exception as ex:
+        print ("ERROR IDM: ", ex)
+    finally:
+        client.close() 
+
+
+def read(idm_ip, idm_port):  
+    try:
+        
+        #connection iDM
+        client = ModbusTcpClient(idm_ip,port=idm_port)     
+        client.connect()  
+
+        #solar power stored in 74
         return readfloat(client,74,1)
   
     except Exception as ex:
