@@ -15,8 +15,8 @@ def readint(client,myadr_dec,unitid):
     result_IntRegister = IntRegister.decode_32bit_int()
     return(result_IntRegister)   
 
-
-def read(sma_ip, sma_port):  
+# read solar power and Engerymeter values
+def readWE(sma_ip, sma_port):  
     try:
         
         # connection SMA
@@ -34,6 +34,26 @@ def read(sma_ip, sma_port):
         time.sleep(1)
         energymeterpower_feedin = readint(client,30867,3)
         return (solarpower, energymeterpower_drawn, energymeterpower_feedin)
+  
+    except Exception as ex:
+        print ("ERROR SMA: ", ex)
+    finally:
+        client.close() 
+
+# read solar power
+def readW(sma_ip, sma_port):  
+    try:
+        
+        # connection SMA
+        client = ModbusTcpClient(sma_ip,port=sma_port)     
+        client.connect()  
+        # solar power stored in 30775, see:
+        # https://files.sma.de/downloads/EDMx-Modbus-TI-de-16.pdf
+        time.sleep(1)
+        solarpower = readint(client,30775,3)
+        if solarpower <0:
+            solarpower=0
+        return (solarpower)
   
     except Exception as ex:
         print ("ERROR SMA: ", ex)

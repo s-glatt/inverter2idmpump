@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+import sys
+import os
+import psutil
 from datetime import datetime
 import math
 
@@ -8,6 +11,14 @@ import Mqtt
 import IdmPump 
 import Sma 
 import TimescaleDb
+
+
+# check if programm was startet in a privious instance
+def is_process_running(python_progname):
+    for process in psutil.process_iter():
+         if python_progname in process.cmdline() and process.pid != os.getpid():
+             return True 
+    return False
 
 
 # metrics from Mqtt-broker
@@ -28,19 +39,38 @@ def mqtt(opendtu_power, opendtu_yieldday):
 
 
 # metrics from SMA
-def sma(sma_ip, sma_port):
+def sma(sma_ip, sma_port, read_allvalues):
     try:
-        solarpower, energymeterpower_drawn, energymeterpower_feedin = Sma.read(sma_ip, sma_port)
-        solarpower = float(solarpower)
-        if not math.isnan(solarpower):
-            TimescaleDb.writeW('sma', solarpower)
-        energymeterpower_drawn = float(energymeterpower_drawn)
-        if not math.isnan(energymeterpower_drawn):
-            TimescaleDb.writeW('energymeter_drawn', energymeterpower_drawn)
-        energymeterpower_feedin = float(energymeterpower_feedin)
-        if not math.isnan(energymeterpower_feedin):
-            TimescaleDb.writeW('energymeter_feedin', energymeterpower_feedin)
-        return (solarpower, energymeterpower_drawn, energymeterpower_feedin)
+        if read_allvalues==1:
+            solarpower, energymeterpower_drawn, energymeterpower_feedin = Sma.readWE(sma_ip, sma_port)
+            solarpower = float(solarpower)
+            if not math.isnan(solarpower) and solarpower >= 0:
+                TimescaleDb.writeW('sma_'+str(sma_ip), solarpower)
+            else:
+                solarpower = 0
+
+            energymeterpower_drawn = float(energymeterpower_drawn)
+            if not math.isnan(energymeterpower_drawn) and energymeterpower_drawn >= 0:
+                TimescaleDb.writeW('energymeter_drawn_'+str(sma_ip), energymeterpower_drawn)
+            else:
+               energymeterpower_drawn = 0
+
+            energymeterpower_feedin = float(energymeterpower_feedin)
+            if not math.isnan(energymeterpower_feedin) and energymeterpower_feedin >= 0:
+                TimescaleDb.writeW('energymeter_feedin_'+str(sma_ip), energymeterpower_feedin)
+            else:
+               energymeterpower_feedin = 0
+
+            return (solarpower, energymeterpower_drawn, energymeterpower_feedin)
+        else:
+            solarpower = Sma.readW(sma_ip, sma_port)
+            solarpower = float(solarpower)
+            if not math.isnan(solarpower) and solarpower >= 0:
+                TimescaleDb.writeW('sma_'+str(sma_ip), solarpower)
+            else:
+                solarpower = 0
+
+            return (solarpower, None, None)
 
     except Exception as ex:
         print ("ERROR sma: ", ex)
@@ -67,6 +97,10 @@ def idmread(idm_ip, idm_port):
 
 
 if __name__ == "__main__":  
+    if is_process_running(sys.argv[0]):
+       print('The script is still running.')
+       sys.exit()
+
     print (datetime.now().strftime("%d/%m/%Y %H:%M:%S") + " START #####")
     try:
         conf = Config.read()
@@ -77,19 +111,21 @@ if __name__ == "__main__":
 
         # get solar power and energymeter metrics
         mqtt_feed_in = mqtt(conf["opendtu_power"], conf["opendtu_yieldday"])
-        sma_feed_in, energymeter_drawn, energymeter_feedin = sma(conf["sma_ip"], conf["sma_port"])
+        sma_feed_in, energymeter_drawn, energymeter_feedin = sma(conf["sma_ip"], conf["sma_port"], conf["sma_read_allvalues"])
+        sma_feed_in2, energymeter_drawn2,engerymeter_feedin2 = sma(conf["sma_ip2"], conf["sma_port2"], conf["sma_read_allvalues2"])
 
         # round the values
         mqtt_feed_in = round(mqtt_feed_in)
         sma_feed_in = round(sma_feed_in)
+        sma_feed_in2 = round(sma_feed_in2)
         energymeter_drawn = round(energymeter_drawn)
         energymeter_feedin = round(energymeter_feedin)
 
-        print (f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} OpenDtu: {mqtt_feed_in}W, SMA: {sma_feed_in}W, IDM feed_in_limit_on: {conf['feed_in_limit_on']}W, IDM feed_in_limit_off: {conf['feed_in_limit_off']}W")
+        print (f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} OpenDtu: {mqtt_feed_in}W, SMA: {sma_feed_in}W, SMA2: {sma_feed_in2}W, IDM feed_in_limit_on: {conf['feed_in_limit_on']}W, IDM feed_in_limit_off: {conf['feed_in_limit_off']}W")
         print (f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} Energymeter Drawn: {energymeter_drawn}W, Energymeter Feed: {energymeter_feedin}W")
 
         # add invert power
-        feed_in = mqtt_feed_in + sma_feed_in
+        feed_in = mqtt_feed_in + sma_feed_in + sma_feed_in2
 
 
         # idm feed in must be above our feed_in_limit_on to switch on

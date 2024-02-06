@@ -43,12 +43,23 @@ def read():
 
         values["sma_ip"] = config['SmaSection']['inverter_ip']
         values["sma_port"] = int(config['SmaSection']['inverter_port'])
+        values["sma_read_allvalues"] = int(config['SmaSection']['read_allvalues'])
         if os.getenv('INVERTER_IP','None') != 'None':
             values["sma_ip"] = os.getenv('INVERTER_IP')
             #print ("using env: INVERTER_IP")
         if os.getenv('INVERTER_PORT','None') != 'None':
             values["sam_port"] = int(os.getenv('INVERTER_PORT'))
             #print ("using env: INVERTER_PORT")
+
+        values["sma_ip2"] = config['SmaSection2']['inverter_ip']
+        values["sma_port2"] = int(config['SmaSection2']['inverter_port'])
+        values["sma_read_allvalues2"] = int(config['SmaSection2']['read_allvalues'])
+        if os.getenv('INVERTER_IP2','None') != 'None':
+            values["sma_ip2"] = os.getenv('INVERTER_IP2')
+            #print ("using env: INVERTER_IP2")
+        if os.getenv('INVERTER_PORT2','None') != 'None':
+            values["sam_port2"] = int(os.getenv('INVERTER_PORT2'))
+            #print ("using env: INVERTER_PORT2")
 
         values["mqtt_broker"] = config['MqttSection']['mqtt_broker']
         values["mqtt_port"] = int(config['MqttSection']['mqtt_port'])
