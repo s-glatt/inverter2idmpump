@@ -37,6 +37,7 @@ def readWE(sma_ip, sma_port):
   
     except Exception as ex:
         print ("ERROR SMA: ", ex)
+        return (None, None, None)
     finally:
         client.close() 
 
@@ -57,5 +58,6 @@ def readW(sma_ip, sma_port):
   
     except Exception as ex:
         print ("ERROR SMA: ", ex)
+        return (None)
     finally:
         client.close() 

@@ -43,20 +43,20 @@ def sma(sma_ip, sma_port, read_allvalues):
     try:
         if read_allvalues==1:
             solarpower, energymeterpower_drawn, energymeterpower_feedin = Sma.readWE(sma_ip, sma_port)
-            solarpower = float(solarpower)
-            if not math.isnan(solarpower) and solarpower >= 0:
+            if not solarpower == None and not math.isnan(solarpower) and solarpower >= 0:
+                solarpower = float(solarpower)
                 TimescaleDb.writeW('sma_'+str(sma_ip), solarpower)
             else:
                 solarpower = 0
 
-            energymeterpower_drawn = float(energymeterpower_drawn)
-            if not math.isnan(energymeterpower_drawn) and energymeterpower_drawn >= 0:
+            if not energymeterpower_drawn == None and not math.isnan(energymeterpower_drawn) and energymeterpower_drawn >= 0:
+                energymeterpower_drawn = float(energymeterpower_drawn)
                 TimescaleDb.writeW('energymeter_drawn_'+str(sma_ip), energymeterpower_drawn)
             else:
                energymeterpower_drawn = 0
 
-            energymeterpower_feedin = float(energymeterpower_feedin)
-            if not math.isnan(energymeterpower_feedin) and energymeterpower_feedin >= 0:
+            if not energymeterpower_feedin == None and not math.isnan(energymeterpower_feedin) and energymeterpower_feedin >= 0:
+                energymeterpower_feedin = float(energymeterpower_feedin)
                 TimescaleDb.writeW('energymeter_feedin_'+str(sma_ip), energymeterpower_feedin)
             else:
                energymeterpower_feedin = 0
@@ -64,8 +64,8 @@ def sma(sma_ip, sma_port, read_allvalues):
             return (solarpower, energymeterpower_drawn, energymeterpower_feedin)
         else:
             solarpower = Sma.readW(sma_ip, sma_port)
-            solarpower = float(solarpower)
-            if not math.isnan(solarpower) and solarpower >= 0:
+            if not solarpower == None and not math.isnan(solarpower) and solarpower >= 0:
+                solarpower = float(solarpower)
                 TimescaleDb.writeW('sma_'+str(sma_ip), solarpower)
             else:
                 solarpower = 0
@@ -133,6 +133,8 @@ if __name__ == "__main__":
         # idm feed_in in kW, negativ numbers for power from grid, 0 to reset
 
         if feed_in > conf['feed_in_limit_on']:
+            # limit to feed_in_limit_on to avoid to high values
+            feed_in = conf['feed_in_limit_on']
             idmwrite(conf["idm_ip"], conf["idm_port"], feed_in/1000)
             print (datetime.now().strftime("%d/%m/%Y %H:%M:%S") + " IDM PV-feed-in write: ", feed_in, "W", sep="")               
             TimescaleDb.writeW('to_idm', feed_in)

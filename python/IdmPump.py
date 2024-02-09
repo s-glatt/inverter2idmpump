@@ -38,6 +38,7 @@ def write(idm_ip, idm_port, feed_in):
   
     except Exception as ex:
         print ("ERROR IDM: ", ex)
+        return (None)
     finally:
         client.close() 
 
@@ -54,5 +55,6 @@ def read(idm_ip, idm_port):
   
     except Exception as ex:
         print ("ERROR IDM: ", ex)
+        return (None)
     finally:
         client.close() 
